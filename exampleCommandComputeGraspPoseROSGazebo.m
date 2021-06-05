@@ -14,8 +14,8 @@ function exampleCommandComputeGraspPoseROSGazebo(coordinator)
         %   together with machine / deep learning based on object
         %   poses.
 
-        coordinator.GraspPose = trvec2tform(coordinator.Parts{coordinator.NextPart}.centerPoint + [0 0 -0.04])*axang2tform([0 1 0 pi]);
-
+        coordinator.GraspPose = trvec2tform(coordinator.Parts{coordinator.NextPart}.centerpoint(1:3)' + [0 0 0])*axang2tform([0 1 0 pi/2])*axang2tform([0 0 1 pi/2]);
+        %coordinator.GraspPose(3,4)=0.465;
         % Trigger Stateflow chart Event
         coordinator.FlowChart.nextAction; 
 end

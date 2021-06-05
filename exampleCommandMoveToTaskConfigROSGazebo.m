@@ -5,12 +5,15 @@ function exampleCommandMoveToTaskConfigROSGazebo(coordinator, taskConfig, tolera
 %   desired task-space pose. 
 
 % Copyright 2020 The MathWorks, Inc.
-
+    disp('move begin');
+    disp(taskConfig);
     % First, check if robot is already at destination
-    anglesTarget = rotm2eul(taskConfig(1:3,1:3),'XYZ');
+    anglesTarget = rotm2eul(taskConfig(1:3,1:3),'ZYX');
+    disp('step1');
     poseTarget = [taskConfig(1:3,4);anglesTarget']; 
+    disp('step2');
     isAway = checkTargetAchieved();
-    %disp('ok!');
+    disp('ok!');
 
     if isAway % if robot not at desired pose, compute a task-based joint trajectory
         ik = inverseKinematics('RigidBodyTree',coordinator.Robot);
@@ -24,7 +27,7 @@ function exampleCommandMoveToTaskConfigROSGazebo(coordinator, taskConfig, tolera
         taskFinal = taskConfig;
 
         % Time intervals
-        timeInterval = [0;4];
+        timeInterval = [0;4]; % 加速
         trajTimes = timeInterval(1):coordinator.TimeStep:timeInterval(end);
 
         % Retrieve task configurations between initial and final
@@ -63,16 +66,25 @@ function exampleCommandMoveToTaskConfigROSGazebo(coordinator, taskConfig, tolera
 
         disp('Done packaging trajectory, now sending...')
         sendGoal(trajAct,trajGoal)
-
+        disp('KO');
         % Wait until the robot reaches destination
         pause(1.0);        % this pause is needed to start asking for movement status
         isAway = true;
-
+        disp('ko2');
+        counter=0;
         while isAway
+            counter=counter+1;
+            disp('counter');
+            disp(counter);
             isAway = checkTargetAchieved();
+            
+            %if counter>3
+                %disp('failure');
+                %isAway=false;
+            %end
             pause(0.2);
         end   
-
+        disp('ko3');
         % Wait until the robot stops moving again
         isMoving = true;
         while isMoving
@@ -80,21 +92,28 @@ function exampleCommandMoveToTaskConfigROSGazebo(coordinator, taskConfig, tolera
             pause(0.2);
         end            
     end
-
+    disp('OK2');
     % Update current robot configuration
     coordinator.CurrentRobotJConfig = getCurrentRobotJConfig(coordinator);
     coordinator.CurrentRobotTaskConfig = getTransform(coordinator.Robot, coordinator.CurrentRobotJConfig, coordinator.RobotEndEffector); 
 
     % Trigger Stateflow chart Event
+    disp('move success');
     coordinator.FlowChart.taskConfigReached; 
-
+    
     function isAway = checkTargetAchieved()
         isAway = true;
         jointCurrent = getCurrentRobotJConfig(coordinator);
+        disp('step3');
         taskCurrent = getTransform(coordinator.Robot, jointCurrent, coordinator.RobotEndEffector);
-        anglesCurrent = rotm2eul(taskCurrent(1:3,1:3), 'XYZ');
+        disp('step4');
+        anglesCurrent = rotm2eul(taskCurrent(1:3,1:3), 'ZYX');
+        disp('step5');
         poseCurrent =  [taskCurrent(1:3,4);anglesCurrent'];
+        disp('step6');
         diffCurrent = abs([poseTarget(1:3)-poseCurrent(1:3); angdiff(poseCurrent(4:6),poseTarget(4:6))]);
+        disp('diff');
+        disp(diffCurrent);
         if all(diffCurrent<max(0.05,tolerance))       
             isAway=false; % goal achieved       
         end        

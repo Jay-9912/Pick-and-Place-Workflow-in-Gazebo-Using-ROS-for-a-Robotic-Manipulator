@@ -63,8 +63,8 @@ classdef exampleHelperCoordinatorPickPlaceROSGazebo < handle
             obj.NumJoints = numel(obj.CurrentRobotJConfig);
             
             % Load deep learning model for object detection
-            temp = load('exampleHelperYolo2DetectorROSGazebo.mat');
-            obj.DetectorModel = temp.detectorYolo2;                     
+            temp = load('task_1_model_3.mat'); % 替换成自己的
+            obj.DetectorModel = temp.detector;                     
         end
         
         function JConfig = getCurrentRobotJConfig(obj)
