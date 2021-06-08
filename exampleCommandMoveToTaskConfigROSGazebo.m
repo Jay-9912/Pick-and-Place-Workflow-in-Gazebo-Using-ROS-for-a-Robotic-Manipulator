@@ -27,7 +27,7 @@ function exampleCommandMoveToTaskConfigROSGazebo(coordinator, taskConfig, tolera
         taskFinal = taskConfig;
 
         % Time intervals
-        timeInterval = [0;4]; % 加速
+        timeInterval = [0;2]; % 加速 4
         trajTimes = timeInterval(1):coordinator.TimeStep:timeInterval(end);
 
         % Retrieve task configurations between initial and final

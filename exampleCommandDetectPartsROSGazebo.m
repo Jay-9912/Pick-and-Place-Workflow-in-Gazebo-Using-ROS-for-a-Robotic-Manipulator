@@ -18,12 +18,11 @@ function exampleCommandDetectPartsROSGazebo(coordinator)
      rgbImg = readImage(coordinator.ROSinfo.rgbImgSub.LatestMessage);
      depthImg = readImage(coordinator.ROSinfo.pointCloudSub.LatestMessage);
      centerPixel = [round(size(rgbImg,2)/2), round(size(rgbImg,1)/2)];
-     disp(centerPixel);
+     width = size(rgbImg,2);
      % Detect parts and show labels
      % figure;
      imshow(rgbImg);
-     [bboxes,scores,labels]=percept(coordinator.DetectorModel,rgbImg);
-     disp(bboxes);
+     [bboxes,~,labels]=percept(coordinator.DetectorModel,rgbImg);
      %[bboxes,~,labels] = detect(coordinator.DetectorModel,rgbImg); % 检测出物体
      tftree = rostf;
      pause(1);
@@ -37,23 +36,62 @@ function exampleCommandDetectPartsROSGazebo(coordinator)
      fixedRotation = eul2rotm([0 pi 0], "XYZ");
      rotm = rotm*fixedRotation;
      tform = [rotm translVect; 0 0 0 1];
-     
+     minindex = 1;
      if ~isempty(labels) 
         labeledImg = insertObjectAnnotation(rgbImg,'Rectangle',bboxes,cellstr(labels));
         imshow(labeledImg); % 显示bbox           
         numObjects = size(bboxes,1); % 物体数量
         allLabels =table(labels);
-        %需要修改
         for i=1:numObjects
             %disp(bboxes(i,2)+round(bboxes(i,4)/2));
-            zDistance = depthImg(round(bboxes(i,2)+bboxes(i,4)/2),round(bboxes(i,1)+bboxes(i,3)/2));
-            centerBox = [bboxes(i,1)+ bboxes(i,3)/2, bboxes(i,2)+ bboxes(i,4)/2];
+            breakflag = 0;
+            leftbound = 1;
+            rightbound = width;
+            leftpoint = depthImg(round(bboxes(i,2)+bboxes(i,4)/2),round(bboxes(i,1)+bboxes(i,3)/3));
+            rightpoint = depthImg(round(bboxes(i,2)+bboxes(i,4)/2),round(bboxes(i,1)+bboxes(i,3)*2/3));
+            if abs(leftpoint-rightpoint)>0.08
+                continue
+            end
+            y = round(bboxes(i,2)+bboxes(i,4)/2);
+            x = round(bboxes(i,1)+bboxes(i,3)/2);
+            p = x;
+            while p > 1
+                if depthImg(y,p)-depthImg(y,p-1)>0.08
+                    breakflag = 1;
+                    break
+                end
+                if depthImg(y,p-1)-depthImg(y,p)>0.08
+                    leftbound = p;
+                    break
+                end
+                p = p-1;
+            end
+            if breakflag == 1
+                continue
+            end
+            q = x;
+            while q < width
+                if depthImg(y,q)-depthImg(y,q+1)>0.08
+                    breakflag = 1;
+                    break
+                end
+                if depthImg(y,q+1)-depthImg(y,q)>0.08
+                    rightbound = q;
+                    break
+                end
+                q = q+1;
+            end
+            if breakflag == 1
+                continue
+            end
+            zDistance = depthImg(y,round((leftbound+rightbound)/2));
+            centerBox = [round((leftbound+rightbound)/2), y];
             centerBoxwrtCenterPixel = centerBox - centerPixel; % in pixels
             xycamera = (zDistance/focalLength)*centerBoxwrtCenterPixel;
             point_camera = [xycamera(1),xycamera(2),zDistance,1];
             point_base = tform * point_camera'; % base coordinate
             part.centerpoint = point_base;
-            if allLabels.labels(i)=='red'
+            if allLabels.labels(i)=='can'
                 % Height of objects is known according to type
                 %part.Z = 0.052;
                 part.type = 2;
@@ -72,10 +110,24 @@ function exampleCommandDetectPartsROSGazebo(coordinator)
 %             part.centerPoint = [actualpartXY(1),actualpartXY(2),part.Z];
             coordinator.Parts{i} = part;
         end
+        minz = 10;
+        
+        for i = 1:numObjects
+            if isempty(coordinator.Parts{i})
+                continue
+            end
+            if coordinator.Parts{i}.centerpoint(1) < minz
+                minz = coordinator.Parts{i}.centerpoint(1);
+                minindex = i;
+            end
+        end
+        
+            
      end
+         
     coordinator.NextPart = 0;
-    if ~isempty(coordinator.Parts) && coordinator.NextPart<=length(coordinator.Parts)
-        coordinator.DetectedParts = coordinator.Parts;
+    if ~isempty(coordinator.Parts) %&& coordinator.NextPart<=length(coordinator.Parts)
+        coordinator.DetectedParts = coordinator.Parts{minindex};
         % Trigger event 'partsDetected' on Stateflow
         coordinator.FlowChart.partsDetected;
         return;
@@ -83,7 +135,7 @@ function exampleCommandDetectPartsROSGazebo(coordinator)
     coordinator.NumDetectionRuns = coordinator.NumDetectionRuns +1;
 
     % Trigger event 'noPartsDetected' on Stateflow
-    %coordinator.FlowChart.noPartsDetected; 
+    coordinator.FlowChart.noPartsDetected; 
    
 end
 function [Bbox,scores,labels]=percept(model,I)
