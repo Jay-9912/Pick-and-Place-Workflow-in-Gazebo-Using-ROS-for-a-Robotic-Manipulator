@@ -1,0 +1,14 @@
+rosip='192.168.30.132';
+rosinit(rosip, 11311);
+load('exampleHelperKINOVAGen3GripperROSGazebo.mat');
+initialRobotJConfig = [1.139 0.724 -1.664 2.565 -0.429 -1.323 -0.657];
+endEffectorFrame = "gripper";
+coordinator = exampleHelperCoordinatorPickPlaceROSGazebo(robot,initialRobotJConfig,endEffectorFrame);
+coordinator.HomeRobotTaskConfig = getTransform(robot, initialRobotJConfig, endEffectorFrame); 
+coordinator.PlacingPose{1} = trvec2tform([[0.35 0.55 0.46]])*axang2tform([0 0 1 pi/2])*axang2tform([0 1 0 pi]);
+coordinator.PlacingPose{2} = trvec2tform([[0.35 -0.55 0.46]])*axang2tform([0 0 1 pi/2])*axang2tform([0 1 0 pi]);
+coordinator.FlowChart = exampleHelperFlowChartPickPlaceROSGazebo('coordinator', coordinator); 
+
+coordinator.FlowChart.startPickPlace;       
+
+
